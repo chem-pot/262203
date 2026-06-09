@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>화학평형 압력변화 시뮬레이션</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:linear-gradient(135deg,#0a0a2e,#1a1a4e,#0d0d3b);
+  font-family:'Malgun Gothic',sans-serif;
+  color:white;min-height:100vh;overflow-x:hidden;
+}
+.header{
+  text-align:center;padding:18px;
+  background:rgba(255,255,255,0.05);
+  border-bottom:2px solid rgba(100,150,255,0.3);
+}
+.header h1{font-size:1.7em;color:#88ccff;margin-bottom:6px;}
+.header .eq{font-size:1.2em;color:#ffcc44;font-weight:bold;}
+.main{display:flex;flex-direction:column;align-items:center;padding:20px;gap:18px;}
+
+.reaction-eq{
+  text-align:center;font-size:1.15em;color:#ffdd88;padding:10px;
+  background:rgba(255,220,100,0.1);border-radius:8px;
+  border:1px solid rgba(255,220,100,0.3);width:100%;max-width:1200px;
+}
+.no2c{color:#ff4400;font-weight:bold;}
+.n2o4c{color:#ffcc00;font-weight:bold;}
+
+.sec-title{
+  text-align:center;font-size:1.3em;color:#aaddff;
+  padding:10px;background:rgba(255,255,255,0.05);
+  border-radius:10px;border:1px solid rgba(100,150,255,0.3);
+  width:100%;max-width:1200px;
+}
+
+/* 주사기 영역 */
+.syr-row{
+  display:flex;justify-content:center;align-items:flex-start;
+  gap:15px;flex-wrap:wrap;width:100%;max-width:1200px;
+}
+.syr-block{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.syr-lbl{
+  font-size:0.92em;color:#ccddff;text-align:center;font-weight:bold;
+  min-height:48px;display:flex;align-items:center;justify-content:center;
+}
+.syr-wrap{position:relative;width:200px;height:360px;}
+.info-box{
+  background:rgba(0,0,0,0.4);border:1px solid rgba(100,150,255,0.4);
+  border-radius:8px;padding:9px 13px;font-size:0.82em;
+  text-align:center;width:195px;
+}
+.info-box .vol{font-size:1.05em;color:#ffdd88;font-weight:bold;}
+.info-box .comp{color:#aaffaa;margin-top:3px;}
+
+/* 화살표 */
+.arr-wrap{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding-top:115px;gap:7px;min-width:70px;
+}
+.arr-wrap svg{width:70px;height:50px;}
+.arr-lbl{font-size:0.78em;color:#ff8844;text-align:center;font-weight:bold;max-width:80px;}
+.arr-lbl.grn{color:#44ff88;}
+
+/* 압력 게이지 */
+.p-gauge{display:flex;align-items:center;gap:8px;font-size:0.88em;color:#ffaa66;}
+.p-bar{width:140px;height:11px;background:rgba(255,255,255,0.1);border-radius:5px;overflow:hidden;}
+.p-fill{height:100%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:5px;transition:width 2s ease;width:0%;}
+
+/* 상태 메시지 */
+.status{
+  text-align:center;padding:11px 20px;border-radius:10px;
+  font-size:0.95em;font-weight:bold;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.5s;width:100%;max-width:820px;min-height:44px;
+}
+.st-init {background:rgba(50,100,200,0.3);border:1px solid rgba(100,150,255,0.5);color:#aaccff;}
+.st-press{background:rgba(200,50,50,0.3); border:1px solid rgba(255,100,100,0.5);color:#ffaaaa;}
+.st-react{background:rgba(255,160,30,0.3);border:1px solid rgba(255,200,60,0.5); color:#ffdd88;}
+.st-eq   {background:rgba(50,200,100,0.3);border:1px solid rgba(100,255,150,0.5);color:#aaffcc;}
+
+/* 정반응 배너 */
+.rxn-banner{
+  display:none;text-align:center;padding:10px 18px;
+  background:rgba(255,100,50,0.2);border:2px solid rgba(255,150,50,0.5);
+  border-radius:10px;color:#ffaa66;font-size:0.98em;font-weight:bold;
+  animation:pulse 1.5s infinite;width:100%;max-width:600px;
+}
+@keyframes pulse{
+  0%,100%{opacity:1;box-shadow:0 0 10px rgba(255,150,50,0.3);}
+  50%{opacity:0.8;box-shadow:0 0 22px rgba(255,150,50,0.7);}
+}
+
+/* 버튼 */
+.btn-row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
+.btn{
+  padding:11px 24px;border:none;border-radius:22px;
+  font-size:0.95em;font-family:'Malgun Gothic',sans-serif;
+  cursor:pointer;font-weight:bold;transition:all 0.3s;
+}
+.btn:disabled{background:#555!important;cursor:not-allowed;transform:none!important;box-shadow:none!important;}
+.btn-red {background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff;box-shadow:0 4px 14px rgba(255,50,50,0.4);}
+.btn-red:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 18px rgba(255,50,50,0.6);}
+.btn-blue{background:linear-gradient(135deg,#4488ff,#0044cc);color:#fff;box-shadow:0 4px 14px rgba(50,100,255,0.4);}
+.btn-blue:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 18px rgba(50,100,255,0.6);}
+.btn-grn {background:linear-gradient(135deg,#44aa44,#006600);color:#fff;box-shadow:0 4px 14px rgba(50,200,50,0.4);}
+.btn-grn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(50,200,50,0.6);}
+
+/* 설명 패널 */
+.exp-panel{
+  width:100%;max-width:1200px;
+  background:rgba(0,0,0,0.4);border:1px solid rgba(100,150,255,0.3);
+  border-radius:12px;padding:14px 18px;font-size:0.92em;line-height:1.78;
+}
+.exp-panel h3{color:#ffcc44;margin-bottom:8px;font-size:1.05em;}
+.r{color:#ff6666;font-weight:bold;} .b{color:#66aaff;font-weight:bold;}
+.g{color:#66ff88;font-weight:bold;} .y{color:#ffdd44;font-weight:bold;}
+
+/* 분자모형 섹션 */
+#mol-sec{display:none;width:100%;max-width:1200px;}
+.canvas-row{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;}
+.canvas-box{display:flex;flex-direction:column;align-items:center;gap:7px;}
+.canvas-box canvas{border-radius:12px;border:2px solid rgba(100,150,255,0.35);}
+.c-lbl{font-size:0.9em;color:#ccddff;text-align:center;font-weight:bold;}
+.c-sub{font-size:0.78em;color:#99aacc;}
+
+.legend-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:8px 0;}
+.leg{display:flex;align-items:center;gap:7px;font-size:0.83em;}
+.leg-dot{width:16px;height:16px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.3);flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧪 화학평형 압력변화 시뮬레이션</h1>
+  <div class="eq">2NO₂(g) &nbsp;⇌&nbsp; N₂O₄(g) &nbsp;|&nbsp; 정반응: 발열반응</div>
+  <div style="font-size:.85em;color:#aabbcc;margin-top:4px;">
+    NO₂(이산화질소·<span style="color:#ff7733;">적갈색</span>)
+    &nbsp;↔&nbsp; N₂O₄(사산화이질소·<span style="color:#ffeeaa;">무색</span>)
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="reaction-eq">
+    <span class="no2c">2 NO₂</span> &nbsp;⇌&nbsp; <span class="n2o4c">N₂O₄</span>
+    &nbsp;&nbsp;
+    <span style="font-size:.85em;color:#88aaff;">(기체 몰수: 2mol → 1mol · 압력 증가 시 정반응 우세)</span>
+  </div>
+
+  <div class="sec-title">🎨 주사기 색 변화로 보는 화학평형 이동</div>
+
+  <!-- 주사기 3개 -->
+  <div class="syr-row">
+
+    <!-- 주사기 1 -->
+    <div class="syr-block">
+      <div class="syr-lbl">① 초기 화학평형<br>(20cc)</div>
+      <div class="syr-wrap"><canvas id="sv1" width="200" height="360"></canvas></div>
+      <div class="info-box">
+        <div class="vol">부피: 20cc</div>
+        <div class="comp">NO₂: 10cc · N₂O₄: 10cc</div>
+        <div style="color:#aabbcc;font-size:.82em;margin-top:3px;">화학평형 상태</div>
+      </div>
+    </div>
+
+    <!-- 화살표 A -->
+    <div class="arr-wrap">
+      <svg viewBox="0 0 70 50">
+        <defs><marker id="mA" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,9 3,0 6" fill="#ff6644"/></marker></defs>
+        <line x1="3" y1="25" x2="60" y2="25" stroke="#ff6644" stroke-width="3" marker-end="url(#mA)"/>
+      </svg>
+      <div class="arr-lbl">피스톤 압축<br>20→10cc</div>
+    </div>
+
+    <!-- 주사기 2 -->
+    <div class="syr-block">
+      <div class="syr-lbl">② 압력 직후<br>(10cc · 평형 이동 전)</div>
+      <div class="syr-wrap"><canvas id="sv2" width="200" height="360"></canvas></div>
+      <div class="info-box">
+        <div class="vol">부피: 10cc</div>
+        <div class="comp">NO₂ 농도↑ · N₂O₄ 농도↑</div>
+        <div style="color:#ff8866;font-size:.82em;margin-top:3px;">색 더 진해짐</div>
+      </div>
+    </div>
+
+    <!-- 화살표 B -->
+    <div class="arr-wrap">
+      <svg viewBox="0 0 70 50">
+        <defs><marker id="mB" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,9 3,0 6" fill="#44ff88"/></marker></defs>
+        <line x1="3" y1="25" x2="60" y2="25" stroke="#44ff88" stroke-width="3" marker-end="url(#mB)"/>
+      </svg>
+      <div class="arr-lbl grn">시간 경과<br>정반응 우세<br>새 평형</div>
+    </div>
+
+    <!-- 주사기 3 -->
+    <div class="syr-block">
+      <div class="syr-lbl">③ 새로운 화학평형<br>(10cc · 평형 이동 후)</div>
+      <div class="syr-wrap"><canvas id="sv3" width="200" height="360"></canvas></div>
+      <div class="info-box">
+        <div class="vol">부피: 10cc</div>
+        <div class="comp">NO₂↓ · N₂O₄↑</div>
+        <div style="color:#44ff88;font-size:.82em;margin-top:3px;">색 다소 연해짐</div>
+      </div>
+    </div>
+
+  </div><!-- /syr-row -->
+
+  <!-- 압력 게이지 -->
+  <div style="display:flex;justify-content:center;gap:35px;flex-wrap:wrap;">
+    <div class="p-gauge">
+      <span>초기 압력:</span>
+      <div class="p-bar"><div class="p-fill" style="width:30%;"></div></div>
+      <span>1 atm</span>
+    </div>
+    <div class="p-gauge">
+      <span>압축 후 압력:</span>
+      <div class="p-bar"><div class="p-fill" id="pbar2"></div></div>
+      <span id="pval2">— atm</span>
+    </div>
+  </div>
+
+  <!-- 상태 메시지 -->
+  <div class="status st-init" id="statusMsg">
+    ⚗️ 초기 상태: NO₂와 N₂O₄가 20cc 주사기에서 화학평형을 이루고 있습니다.
+  </div>
+
+  <!-- 정반응 배너 -->
+  <div class="rxn-banner" id="rxnBanner">
+    🔴 정반응 우세! &nbsp; 2NO₂ → N₂O₄ &nbsp;|&nbsp; NO₂ 감소 · N₂O₄ 증가
+  </div>
+
+  <!-- 버튼 -->
+  <div class="btn-row">
+    <button class="btn btn-red"  id="btnP" onclick="startAnim()">🔴 피스톤 압축 시작</button>
+    <button class="btn btn-blue" id="btnM" onclick="showMol()" disabled>🔵 분자 모형으로 보기</button>
+    <button class="btn btn-grn"  onclick="resetAll()">🟢 처음으로</button>
+  </div>
+
+  <!-- 설명 -->
+  <div class="exp-panel">
+    <h3>💡 압력 변화에 따른 화학평형 이동 원리</h3>
+    <p><span class="r">① 압력 증가</span>: 피스톤 압축 20cc→10cc → 기체 압력 약 <span class="y">2배</span> 증가</p>
+    <p><span class="b">② 몰농도 증가</span>: 부피 절반 → 분자 밀집 → 농도(mol/L) <span class="y">2배</span></p>
+    <p><span class="r">③ 정반응 우세</span>: 압력↓ 위해 기체 몰수 감소 방향 → <span class="r">2NO₂(2mol)</span>→<span class="y">N₂O₄(1mol)</span></p>
+    <p><span class="g">④ 새 평형</span>: NO₂ 감소·N₂O₄ 증가 → 색 <span class="g">다소 연해진 새 평형</span> (압축 직후보다 연하나 원래보다 진함)</p>
+  </div>
+
+  <!-- 분자모형 섹션 -->
+  <div id="mol-sec">
+    <div class="sec-title">⚛️ 분자 모형으로 보는 화학평형 이동 (고2 수준)</div>
+
+    <div class="legend-row">
+      <div class="leg">
+        <div class="leg-dot" style="background:radial-gradient(circle at 35% 35%,#7799ff,#1c3dbb);"></div>N (질소)
+      </div>
+      <div class="leg">
+        <div class="leg-dot" style="background:radial-gradient(circle at 35% 35%,#ff7755,#b51800);"></div>O (산소)
+      </div>
+      <div class="leg">
+        <div style="width:10px;height:10px;border-radius:50%;background:#ffff88;border:1px solid #ffff44;flex-shrink:0;"></div>
+        • 홀전자 (NO₂의 N)
+      </div>
+      <div class="leg" style="gap:5px;">
+        <div style="width:3px;height:16px;background:#ffdd88;border-radius:2px;"></div>
+        <div style="width:3px;height:16px;background:#ffdd88;border-radius:2px;margin-left:2px;"></div>
+        이중결합(=)
+      </div>
+      <div class="leg" style="gap:5px;">
+        <div style="width:3px;height:16px;background:#ffdd88;border-radius:2px;"></div>
+        단일결합(–)
+      </div>
+    </div>
+
+    <div class="canvas-row">
+      <div class="canvas-box">
+        <div class="c-lbl">① 초기 평형 (20cc)</div>
+        <canvas id="mc1" width="340" height="295"></canvas>
+        <div class="c-sub">NO₂ 8개 · N₂O₄ 4개 · 총 12개</div>
+      </div>
+      <div class="canvas-box">
+        <div class="c-lbl">② 압력 직후 (10cc)</div>
+        <canvas id="mc2" width="340" height="295"></canvas>
+        <div class="c-sub">NO₂ 8개 · N₂O₄ 4개 · 밀집</div>
+      </div>
+      <div class="canvas-box">
+        <div class="c-lbl">③ 새 평형 (10cc)</div>
+        <canvas id="mc3" width="340" height="295"></canvas>
+        <div class="c-sub">NO₂ 4개 · N₂O₄ 6개 · 총 10개</div>
+      </div>
+    </div>
+
+    <div class="exp-panel" style="margin-top:14px;">
+      <h3>🔬 분자 모형 해설 (고2 수준)</h3>
+      <p>
+        <span class="r">NO₂</span>:
+        <span class="y">굽은형(bent)</span> 분자 · 결합각 약 134° ·
+        N=O 이중결합 1개 + N–O 단일결합 1개 (공명구조, 결합차수 1.5) ·
+        N 원자에 <span class="y">홀전자(•) 1개</span> → 적갈색 · 반응성 높음
+      </p>
+      <p>
+        <span class="y">N₂O₄</span>:
+        NO₂ 두 분자가 <span class="b">N–N 단일결합</span>으로 연결된 이량체(dimer) ·
+        평면형 구조 · N–N–O 결합각 약 113° · 무색
+      </p>
+      <p>
+        압력 증가 → <span class="r">분자 충돌 빈도↑</span> →
+        <span class="r">2NO₂ → N₂O₄ 정반응 우세</span> →
+        <span class="g">기체 총 몰수 감소(12→10)</span>로 압력 상쇄 → 새 평형
+      </p>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+/* ═══════════════════════════════════════
+   상수 & 상태
+═══════════════════════════════════════ */
+const SW=200, SH=360;
+const SL=36, SR=164, STOP=58, SBOT=308;
+const SHH = SBOT-STOP; // 250px
+const PH  = 16;        // 피스톤 높이
+
+// cc → pistonY (피스톤 상단)
+const cc2y = cc => STOP + (20-cc)/20*SHH;
+
+// 타임라인
+const TC  = 2400;  // 압축 완료
+const TRS = 2700;  // 정반응 시작
+const TRE = 5600;  // 정반응 완료
+const TDN = 6100;  // 전체 완료
+
+let raf=null, t0=null, running=false, done=false;
+
+const S2 = {py: cc2y(20), alpha: 0.55};
+const S3 = {alpha: 0.0};
+
+/* ═══════════════════════════════════════
+   유틸
+═══════════════════════════════════════ */
+const lerp  = (a,b,t) => a+(b-a)*t;
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const ease  = t => t<.5 ? 2*t*t : -1+(4-2*t)*t;
+
+/* ═══════════════════════════════════════
+   주사기 Canvas 그리기
+═══════════════════════════════════════ */
+function drawSyringe(id, pistonY, r,g,b, alpha, opt){
+  opt = opt||{};
+  const cv=document.getElementById(id);
+  if(!cv) return;
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,SW,SH);
+
+  /* 손잡이 플랜지 */
+  const fg=ctx.createLinearGradient(0,0,SW,0);
+  fg.addColorStop(0,'rgba(168,195,248,0.90)');
+  fg.addColorStop(.5,'rgba(198,215,255,0.95)');
+  fg.addColorStop(1,'rgba(152,180,242,0.90)');
+  ctx.fillStyle=fg;
+  ctx.beginPath();ctx.roundRect(8,STOP-32,SW-16,20,5);ctx.fill();
+  ctx.strokeStyle='rgba(108,148,228,1)';ctx.lineWidth=1.5;ctx.stroke();
+
+  /* 로드 */
+  const rodH=pistonY-(STOP-12);
+  if(rodH>0){
+    const rg=ctx.createLinearGradient(SW/2-6,0,SW/2+6,0);
+    rg.addColorStop(0,'rgba(192,210,252,0.80)');
+    rg.addColorStop(.5,'rgba(162,186,245,0.92)');
+    rg.addColorStop(1,'rgba(132,160,228,0.80)');
+    ctx.fillStyle=rg;
+    ctx.fillRect(SW/2-6,STOP-12,12,rodH);
+    ctx.strokeStyle='rgba(108,148,228,0.45)';ctx.lineWidth=1;
+    ctx.strokeRect(SW/2-6,STOP-12,12,rodH);
+  }
+
+  /* 기체 색 */
+  const gasTop=pistonY+PH, gasH=SBOT-gasTop;
+  if(gasH>1 && alpha>0.005){
+    const gg=ctx.createLinearGradient(SL,gasTop,SR,SBOT);
+    gg.addColorStop(0,`rgba(${r},${g},${b},${clamp(alpha*1.12,0,1)})`);
+    gg.addColorStop(1,`rgba(${r},${Math.max(g-28,0)},${Math.max(b-12,0)},${clamp(alpha*.82,0,1)})`);
+    ctx.fillStyle=gg;
+    ctx.beginPath();ctx.roundRect(SL+2,gasTop,SR-SL-4,gasH,[0,0,8,8]);ctx.fill();
+  }
+
+  /* 몸통 */
+  ctx.strokeStyle='rgba(138,192,255,0.88)';ctx.lineWidth=2.5;
+  ctx.fillStyle='rgba(198,222,255,0.04)';
+  ctx.beginPath();ctx.roundRect(SL,STOP,SR-SL,SHH,[5,5,10,10]);
+  ctx.fill();ctx.stroke();
+
+  /* 눈금 */
+  [{y:STOP,l:'20cc',m:true},{y:STOP+SHH*.25,l:'15cc',m:false},
+   {y:STOP+SHH*.5,l:'10cc',m:true},{y:STOP+SHH*.75,l:'5cc',m:false},
+   {y:SBOT,l:'0cc',m:true}].forEach(mk=>{
+    ctx.beginPath();ctx.moveTo(SL,mk.y);ctx.lineTo(SL+(mk.m?18:10),mk.y);
+    ctx.strokeStyle=mk.m?'rgba(255,255,210,.62)':'rgba(255,255,190,.28)';
+    ctx.lineWidth=mk.m?1.5:1;ctx.stroke();
+    if(mk.m){
+      ctx.fillStyle='rgba(255,255,195,.58)';
+      ctx.font='9px Arial';ctx.textAlign='left';
+      ctx.fillText(mk.l,SR+4,mk.y+3);
+    }
+  });
+
+  /* 피스톤 디스크 */
+  const pg=ctx.createLinearGradient(SL,pistonY,SR,pistonY+PH);
+  pg.addColorStop(0,'rgba(212,226,255,.97)');
+  pg.addColorStop(.45,'rgba(175,198,248,.95)');
+  pg.addColorStop(1,'rgba(128,155,225,.93)');
+  ctx.fillStyle=pg;
+  ctx.beginPath();ctx.roundRect(SL-4,pistonY,SR-SL+8,PH,4);ctx.fill();
+  ctx.strokeStyle='rgba(92,136,222,1)';ctx.lineWidth=2;ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.38)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(SL+5,pistonY+5);ctx.lineTo(SR-5,pistonY+5);ctx.stroke();
+
+  /* 노즐 */
+  ctx.fillStyle='rgba(160,186,238,.85)';
+  ctx.beginPath();ctx.roundRect(SW/2-18,SBOT,36,14,[0,0,4,4]);ctx.fill();
+  ctx.strokeStyle='rgba(108,148,222,.80)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.roundRect(SW/2-10,SBOT+14,20,22,[0,0,7,7]);ctx.fill();ctx.stroke();
+
+  /* 압력 화살표 */
+  if(opt.arr>0){
+    const a=clamp(opt.arr,0,1);
+    ctx.globalAlpha=a;
+    ctx.fillStyle='#ff2222';
+    ctx.font=`bold ${11+a*5}px Arial`;ctx.textAlign='center';
+    ctx.fillText('↓',SW/2-20,STOP-40);
+    ctx.fillText('↓',SW/2,   STOP-40);
+    ctx.fillText('↓',SW/2+20,STOP-40);
+    ctx.font='bold 9px Malgun Gothic';
+    ctx.fillStyle='#ff6666';
+    ctx.fillText('압 력 증 가',SW/2,STOP-25);
+    ctx.globalAlpha=1;
+  }
+
+  /* 새 평형 체크 */
+  if(opt.check){
+    ctx.fillStyle='rgba(80,255,140,.92)';
+    ctx.font='bold 10px Malgun Gothic';ctx.textAlign='center';
+    ctx.fillText('✓ 새 평형',SW/2,STOP-18);
+  }
+}
+
+/* ═══════════════════════════════════════
+   초기 렌더
+═══════════════════════════════════════ */
+function drawInit(){
+  drawSyringe('sv1',cc2y(20),255,112,20,0.55);
+  drawSyringe('sv2',cc2y(20),255,112,20,0.55);
+  // sv3 — 빈 표시
+  const cv=document.getElementById('sv3');
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,SW,SH);
+  ctx.strokeStyle='rgba(138,190,255,.45)';ctx.lineWidth=2;
+  ctx.fillStyle='rgba(100,120,180,.08)';
+  ctx.beginPath();ctx.roundRect(SL,STOP,SR-SL,SHH,[5,5,10,10]);
+  ctx.fill();ctx.stroke();
+  ctx.fillStyle='rgba(180,200,255,.35)';
+  ctx.font='11px Malgun Gothic';ctx.textAlign='center';
+  ctx.fillText('반응 후 표시',SW/2,STOP+SHH/2);
+}
+
+/* ═══════════════════════════════════════
+   애니메이션
+═══════════════════════════════════════ */
+function animLoop(ts){
+  if(!t0) t0=ts;
+  const el=ts-t0;
+
+  /* Phase1: 압축 */
+  if(el<=TC){
+    const t=ease(clamp(el/TC,0,1));
+    S2.py    = lerp(cc2y(20),cc2y(10),t);
+    S2.alpha = lerp(0.55,0.92,t);
+    drawSyringe('sv2',S2.py,255,55,0,S2.alpha,{arr:t});
+    const vol=(20-10*t).toFixed(1);
+    setStatus('st-press',`🔴 피스톤 압축 중… 부피 ${vol}cc → 농도 증가 → 색 진해짐`);
+  }
+
+  /* Phase2: 정반응 */
+  if(el>=TRS){
+    const t=ease(clamp((el-TRS)/(TRE-TRS),0,1));
+    S3.alpha=lerp(0,0.42,t);
+    drawSyringe('sv3',cc2y(10),255,135,30,S3.alpha,el>=TDN?{check:true}:{});
+    if(el>=TRS && el<TRS+80){
+      document.getElementById('rxnBanner').style.display='flex';
+      document.getElementById('rxnBanner').style.justifyContent='center';
+    }
+    setStatus('st-react','🟡 정반응 진행 중: 2NO₂→N₂O₄ | NO₂ 감소 · N₂O₄ 증가');
+    // 압력게이지
+    if(el>=TRS && el<TRS+100){
+      document.getElementById('pbar2').style.width='60%';
+      document.getElementById('pval2').textContent='2 atm';
+    }
+  }
+
+  /* 완료 */
+  if(el>=TDN){
+    drawSyringe('sv2',cc2y(10),255,55,0,0.92);
+    drawSyringe('sv3',cc2y(10),255,135,30,0.42,{check:true});
+    setStatus('st-eq','✅ 새로운 화학평형 도달! N₂O₄ 증가로 색이 다소 연해졌습니다.');
+    document.getElementById('btnM').disabled=false;
+    done=true; return;
+  }
+
+  raf=requestAnimationFrame(animLoop);
+}
+
+/* ═══════════════════════════════════════
+   버튼
+═══════════════════════════════════════ */
+function startAnim(){
+  if(running||done) return;
+  running=true;
+  document.getElementById('btnP').disabled=true;
+  setStatus('st-press','🔴 압축 시작!');
+  raf=requestAnimationFrame(animLoop);
+}
+function setStatus(cls,msg){
+  const el=document.getElementById('statusMsg');
+  el.className='status '+cls; el.textContent=msg;
+}
+function resetAll(){
+  if(raf){cancelAnimationFrame(raf);raf=null;}
+  running=false;done=false;t0=null;
+  S2.py=cc2y(20);S2.alpha=0.55;S3.alpha=0.0;
+  document.getElementById('btnP').disabled=false;
+  document.getElementById('btnM').disabled=true;
+  document.getElementById('rxnBanner').style.display='none';
+  document.getElementById('pbar2').style.width='0%';
+  document.getElementById('pval2').textContent='— atm';
+  document.getElementById('mol-sec').style.display='none';
+  setStatus('st-init','⚗️ 초기 상태: NO₂와 N₂O₄가 20cc 주사기에서 화학평형을 이루고 있습니다.');
+  drawInit();
+}
+function showMol(){
+  const s=document.getElementById('mol-sec');
+  s.style.display='block';
+  s.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(()=>{drawMC1();drawMC2();drawMC3();},250);
+}
+
+/* ═══════════════════════════════════════
+   분자 모형 — 고2 수준
+═══════════════════════════════════════ */
+
+/* 원자 */
+function atom(ctx,x,y,r,c1,c2,lbl){
+  const g=ctx.createRadialGradient(x-r*.32,y-r*.32,r*.05,x,y,r);
+  g.addColorStop(0,c1);g.addColorStop(1,c2);
+  ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fillStyle=g;ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=1;ctx.stroke();
+  if(lbl){
+    ctx.fillStyle='rgba(255,255,255,.95)';
+    ctx.font=`bold ${Math.round(r*1.05)}px Arial`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(lbl,x,y+.5);
+  }
+}
+
+/* 결합선 */
+function bond(ctx,x1,y1,x2,y2,type,col){
+  col=col||'rgba(255,215,130,.68)';
+  const dx=x2-x1,dy=y2-y1,d=Math.sqrt(dx*dx+dy*dy);
+  const nx=-dy/d,ny=dx/d;
+  ctx.strokeStyle=col;ctx.lineCap='round';
+  if(type===1){
+    ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  } else if(type===2){
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x1+nx*3.2,y1+ny*3.2);ctx.lineTo(x2+nx*3.2,y2+ny*3.2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x1-nx*3.2,y1-ny*3.2);ctx.lineTo(x2-nx*3.2,y2-ny*3.2);ctx.stroke();
+  } else {
+    /* 1.5공명: 실선+점선 */
+    ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(x1+nx*3,y1+ny*3);ctx.lineTo(x2+nx*3,y2+ny*3);ctx.stroke();
+    ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(x1-nx*3,y1-ny*3);ctx.lineTo(x2-nx*3,y2-ny*3);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+/* 홀전자 */
+function radical(ctx,x,y){
+  ctx.beginPath();ctx.arc(x,y,2.8,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,130,.96)';ctx.fill();
+  ctx.strokeStyle='rgba(255,255,60,.55)';ctx.lineWidth=.8;ctx.stroke();
+}
+
+/*
+  NO₂ — 굽은형(bent) · 결합각 134°
+  N(cx,cy) 중심, O 두 개 아래쪽으로
+  이중결합 + 단일결합 (공명 1.5)
+  N에 홀전자
+*/
+function NO2(ctx,cx,cy,ang){
+  const BL=27, half=(134/2)*Math.PI/180;
+  const aL=ang+Math.PI/2+half;
+  const aR=ang+Math.PI/2-half;
+  const o1x=cx+BL*Math.cos(aL),o1y=cy+BL*Math.sin(aL);
+  const o2x=cx+BL*Math.cos(aR),o2y=cy+BL*Math.sin(aR);
+
+  bond(ctx,cx,cy,o1x,o1y,2,'rgba(255,182,85,.70)');
+  bond(ctx,cx,cy,o2x,o2y,1,'rgba(255,182,85,.70)');
+
+  atom(ctx,o1x,o1y,10,'#ff7a55','#b51800','O');
+  atom(ctx,o2x,o2y,10,'#ff7a55','#b51800','O');
+  atom(ctx,cx,cy,11,'#6d90ff','#1c3dbb','N');
+
+  radical(ctx,
+    cx+13*Math.cos(ang-Math.PI/2+.28),
+    cy+13*Math.sin(ang-Math.PI/2+.28));
+}
+
+/*
+  N₂O₄ — 평면형 · N-N 단일결합
+  결합각 N-N-O ≈ 113°
+  각 N에서 =O(이중) + -O(단일)
+*/
+function N2O4(ctx,cx,cy,ang){
+  const NN=22,BL=24,nno=113*Math.PI/180;
+  const n1x=cx-NN/2*Math.cos(ang),n1y=cy-NN/2*Math.sin(ang);
+  const n2x=cx+NN/2*Math.cos(ang),n2y=cy+NN/2*Math.sin(ang);
+
+  bond(ctx,n1x,n1y,n2x,n2y,1,'rgba(192,212,255,.74)');
+
+  const b1=ang+Math.PI;
+  const o1ax=n1x+BL*Math.cos(b1+nno/2),o1ay=n1y+BL*Math.sin(b1+nno/2);
+  const o1bx=n1x+BL*Math.cos(b1-nno/2),o1by=n1y+BL*Math.sin(b1-nno/2);
+
+  const b2=ang;
+  const o2ax=n2x+BL*Math.cos(b2+nno/2),o2ay=n2y+BL*Math.sin(b2+nno/2);
+  const o2bx=n2x+BL*Math.cos(b2-nno/2),o2by=n2y+BL*Math.sin(b2-nno/2);
+
+  bond(ctx,n1x,n1y,o1ax,o1ay,2,'rgba(255,192,85,.64)');
+  bond(ctx,n1x,n1y,o1bx,o1by,1,'rgba(255,192,85,.64)');
+  bond(ctx,n2x,n2y,o2ax,o2ay,1,'rgba(255,192,85,.64)');
+  bond(ctx,n2x,n2y,o2bx,o2by,2,'rgba(255,192,85,.64)');
+
+  atom(ctx,o1ax,o1ay,9,'#ff7a55','#b51800','O');
+  atom(ctx,o1bx,o1by,9,'#ff7a55','#b51800','O');
+  atom(ctx,o2ax,o2ay,9,'#ff7a55','#b51800','O');
+  atom(ctx,o2bx,o2by,9,'#ff7a55','#b51800','O');
+  atom(ctx,n1x,n1y,11,'#6d90ff','#1c3dbb','N');
+  atom(ctx,n2x,n2y,11,'#6d90ff','#1c3dbb','N');
+}
+
+/* 배경 */
+function mbg(ctx,W,H,ov,ttl){
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#030610');bg.addColorStop(1,'#07101f');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=ov;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(128,178,255,.42)';ctx.lineWidth=2;
+  ctx.strokeRect(1,1,W-2,H-2);
+  ctx.fillStyle='rgba(198,218,255,.65)';
+  ctx.font='bold 11px Malgun Gothic';ctx.textAlign='center';
+  ctx.fillText(ttl,W/2,16);
+}
+
+/* 피스톤 구분선 (Canvas2·3용) */
+function pistonLine(ctx,W,yL){
+  ctx.fillStyle='rgba(128,152,212,.10)';
+  ctx.fillRect(0,18,W,yL-18);
+  const pg=ctx.createLinearGradient(0,yL-18,0,yL);
+  pg.addColorStop(0,'rgba(208,224,255,.88)');
+  pg.addColorStop(1,'rgba(142,168,232,.88)');
+  ctx.fillStyle=pg;
+  ctx.beginPath();ctx.roundRect(0,yL-18,W,18,3);ctx.fill();
+  ctx.strokeStyle='rgba(90,135,222,1)';ctx.lineWidth=1.8;ctx.stroke();
+  ctx.fillStyle='rgba(212,226,255,.90)';
+  ctx.font='bold 10px Arial';ctx.textAlign='center';
+  ctx.fillText('▼ 피스톤',W/2,yL-5);
+  ctx.strokeStyle='rgba(138,188,255,.45)';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+  ctx.beginPath();ctx.moveTo(0,yL);ctx.lineTo(W,yL);ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* Canvas1: 초기 평형 (전체 영역) */
+function drawMC1(){
+  const cv=document.getElementById('mc1');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  mbg(ctx,W,H,'rgba(200,72,8,.12)','① 초기 평형 (20cc) — 넓은 공간');
+
+  /* NO₂ 8개 */
+  [[55,70,-.1],[168,64,.85],[285,72,2.4],
+   [42,162,1.6],[180,155,.25],[298,165,1.1],
+   [88,248,2.0],[232,242,.55]]
+  .forEach(([x,y,a])=>NO2(ctx,x,y,a));
+
+  /* N₂O₄ 4개 */
+  [[120,115,.2],[238,112,1.4],
+   [100,205,.75],[255,208,2.1]]
+  .forEach(([x,y,a])=>N2O4(ctx,x,y,a));
+
+  ctx.fillStyle='rgba(198,215,255,.55)';
+  ctx.font='10px Malgun Gothic';ctx.textAlign='center';
+  ctx.fillText('NO₂ 8개 + N₂O₄ 4개 = 총 12개',W/2,H-8);
+}
+
+/* Canvas2: 압력 직후 (하단 절반에 밀집) */
+function drawMC2(){
+  const cv=document.getElementById('mc2');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  mbg(ctx,W,H,'rgba(255,38,0,.17)','② 압력 직후 (10cc) — 밀집');
+
+  pistonLine(ctx,W,H/2);
+
+  ctx.fillStyle='#ff2222';ctx.font='bold 12px Arial';ctx.textAlign='center';
+  ctx.fillText('↓  압 력  ↑  ↓',W/2,17);
+
+  const yo=H/2+5;
+  /* NO₂ 8개 밀집 */
+  [[46,yo+22,.2],[128,yo+17,1.1],[216,yo+24,2.3],[300,yo+19,.7],
+   [58,yo+88,1.8],[158,yo+82,.4],[252,yo+90,1.5],[316,yo+84,2.8]]
+  .forEach(([x,y,a])=>NO2(ctx,x,y,a));
+
+  /* N₂O₄ 4개 밀집 */
+  [[96,yo+52,.3],[210,yo+48,1.7],
+   [78,yo+122,2.2],[242,yo+118,.9]]
+  .forEach(([x,y,a])=>N2O4(ctx,x,y,a));
+
+  ctx.fillStyle='rgba(255,172,130,.82)';
+  ctx.font='10px Malgun Gothic';ctx.textAlign='center';
+  ctx.fillText('NO₂ 8개 + N₂O₄ 4개 = 총 12개 (밀집!)',W/2,H-8);
+}
+
+/* Canvas3: 새 평형 (NO₂ 4개, N₂O₄ 6개) */
+function drawMC3(){
+  const cv=document.getElementById('mc3');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  mbg(ctx,W,H,'rgba(255,118,14,.09)','③ 새 평형 (10cc) — 정반응 후');
+
+  pistonLine(ctx,W,H/2);
+
+  ctx.fillStyle='rgba(80,255,140,.90)';
+  ctx.font='bold 10px Malgun Gothic';ctx.textAlign='center';
+  ctx.fillText('✓ 정반응 완료: 2NO₂ → N₂O₄',W/2,16);
+
+  const yo=H/2+5;
+
+  /* NO₂ 4개 (감소) */
+  [[50,yo+28,.5],[265,yo+22,2.1],
+   [62,yo+110,1.3],[278,yo+104,.9]]
+  .forEach(([x,y,a])=>NO2(ctx,x,y,a));
+
+  /* N₂O₄ 6개 (증가) */
+  [[142,yo+26,.2],[225,yo+74,1.6],
+   [56,yo+82,.9],[298,yo+122,2.4],
+   [150,yo+122,.4],[252,yo+46,1.1]]
+  .forEach(([x,y,a])=>N2O4(ctx,x,y,a));
+
+  ctx.fillStyle='rgba(98,255,148,.82)';
+  ctx.font='10px Malgun Gothic';ctx.textAlign='center';
+  ctx.fillText('NO₂ 4개 + N₂O₄ 6개 = 총 10개 (기체 몰수 감소)',W/2,H-8);
+}
+
+/* ═══════════════════════════════════════
+   시작
+═══════════════════════════════════════ */
+window.onload=()=>drawInit();
+</script>
+</body>
+</html>
